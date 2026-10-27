@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { hours, TIME_ZONE } from "../src/content/hours.ts";
-import { formatTime, getOpenStatus } from "../src/lib/hours.ts";
+import { describeCountdown, formatCountdown, formatTime, getOpenStatus } from "../src/lib/hours.ts";
 
 const at = (iso: string) => getOpenStatus(new Date(iso), hours, TIME_ZONE);
 
@@ -78,4 +78,45 @@ test("winter (EST) evenings work too", () => {
 
 test("Monday morning lunchtime opens tonight", () => {
   assert.equal(at("2026-10-26T12:00:00-04:00").detail, "Opens at 8 PM");
+});
+
+const HOUR = 3_600_000;
+const opensIn = (iso: string) => {
+  const s = at(iso);
+  assert.equal(s.state, "closed");
+  return s.state === "closed" ? s.opensInMs : null;
+};
+
+test("counts down to Friday's 4 PM happy hour", () => {
+  assert.equal(opensIn("2026-10-30T14:00:00-04:00"), 2 * HOUR);
+  assert.equal(opensIn("2026-10-30T15:59:30-04:00"), 30_000);
+  assert.equal(opensIn("2026-10-30T15:59:59.250-04:00"), 750);
+});
+
+test("counts down from Sunday evening to Monday night", () => {
+  assert.equal(opensIn("2026-11-01T19:00:00-05:00"), 25 * HOUR);
+});
+
+test("countdown includes the extra hour when clocks fall back", () => {
+  // Sun 1:45 AM EDT -> Mon 8 PM EST is 42h15m on the wall clock, 43h15m in real time.
+  assert.equal(opensIn("2026-11-01T01:45:00-04:00"), 43.25 * HOUR);
+});
+
+test("countdown drops the lost hour when clocks spring forward", () => {
+  // Sun 1:45 AM EST -> Mon 8 PM EDT is 42h15m on the wall clock, 41h15m in real time.
+  assert.equal(opensIn("2027-03-14T01:45:00-05:00"), 41.25 * HOUR);
+});
+
+test("open shifts have no countdown to open", () => {
+  assert.equal(at("2026-10-31T01:00:00-04:00").state, "open");
+});
+
+test("formats the countdown for the sign and for screen readers", () => {
+  assert.equal(formatCountdown(2 * HOUR + 14 * 60_000 + 5_000), "2h 14m 05s");
+  assert.equal(formatCountdown(30_000), "0m 30s");
+  assert.equal(formatCountdown(750), "0m 01s");
+  assert.equal(formatCountdown(25 * HOUR), "1d 01h 00m 00s");
+  assert.equal(describeCountdown(2 * HOUR + 14 * 60_000 + 5_000), "2 hours 15 minutes");
+  assert.equal(describeCountdown(25 * HOUR), "1 day 1 hour");
+  assert.equal(describeCountdown(30_000), "1 minute");
 });

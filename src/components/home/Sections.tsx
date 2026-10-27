@@ -7,6 +7,7 @@ import { CashStamp, StationSign } from "../Decor";
 import { DepartureBoard } from "../DepartureBoard";
 import { GameIcon } from "../GameIcon";
 import { HoursTable } from "../HoursTable";
+import { OpenStatus } from "../OpenStatus";
 import { Reveal } from "../motion/Reveal";
 import { OwlMark } from "../OwlMark";
 
@@ -237,8 +238,9 @@ export function Visit() {
         </StationSign>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-2">
-          <div className="flex flex-col gap-8">
-            <div className="ticket-shadow">
+          <div className="flex flex-col items-start gap-8">
+            <OpenStatus />
+            <div className="ticket-shadow self-stretch">
               <div className="ticket ticket-cream px-7 pt-5 pb-7 [--tear:4.25rem]">
                 <h3 className="flex h-11 items-center text-3xl">Timetable</h3>
                 <div className="mt-5">
@@ -247,7 +249,7 @@ export function Visit() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-6 rounded-lg border-2 border-ink/15 p-6 sm:flex-row sm:items-center">
+            <div className="flex flex-col gap-6 self-stretch rounded-lg border-2 border-ink/15 p-6 sm:flex-row sm:items-center">
               <CashStamp />
               <div>
                 <p className="font-display text-2xl font-extrabold uppercase">Bring cash</p>

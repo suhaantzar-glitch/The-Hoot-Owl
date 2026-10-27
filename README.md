@@ -39,7 +39,7 @@ In `src/content/site.ts`, replace the `TODO_` values (`TODO_PHONE`, `TODO_EMAIL`
 
 `src/content/hours.ts` lists each day with 24-hour `open` and `close` times in Canton time. A closing time earlier than the opening time means the shift runs past midnight, so `{ open: "20:00", close: "01:30" }` on Friday is Friday 8 PM to 1:30 AM Saturday. Use `open: null` for a closed day.
 
-The "Open now / Closed / Opens at 8 PM" lamp, the highlighted row in the hours table and the opening hours Google sees are all generated from this one file. The lamp always judges by the bar's clock (America/New_York), whatever time zone the visitor is in, and treats 12:45 AM Saturday as part of Friday night.
+The "Open now / Closed / Opens at 8 PM" lamp with its "Doors in 2h 14m 05s" countdown, the highlighted row in the hours table and the opening hours Google sees are all generated from this one file. The lamp always judges by the bar's clock (America/New_York), whatever time zone the visitor is in, and treats 12:45 AM Saturday as part of Friday night.
 
 ### Weekly lineup
 

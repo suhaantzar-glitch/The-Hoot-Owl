@@ -1,19 +1,20 @@
 "use client";
 
-import { hours, TIME_ZONE } from "@/content/hours";
-import { getOpenStatus } from "@/lib/hours";
-import { useNow } from "@/lib/useNow";
+import { describeCountdown, formatCountdown } from "@/lib/hours";
+import { useOpenStatus } from "@/lib/useOpenStatus";
 
-/** Live "Open now / Closed · Opens at 8 PM" lamp, judged on Canton time. */
+/**
+ * Live "Open now / Closed · Opens at 8 PM" lamp, judged on Canton time,
+ * with a running countdown to the doors opening while closed.
+ */
 export function OpenStatus({ className = "" }: { className?: string }) {
-  const now = useNow();
-  const status = now === null ? null : getOpenStatus(new Date(now), hours, TIME_ZONE);
+  const status = useOpenStatus();
   const open = status?.state === "open";
+  const opensInMs = status?.state === "closed" ? status.opensInMs : null;
 
   return (
-    <p
-      className={`inline-flex min-h-12 items-center gap-3 rounded-full bg-cream py-2 pr-5 pl-3 text-ink shadow-[0_0.5rem_1rem_-0.5rem_rgb(0_0_0/0.5)] ${className}`}
-      aria-live="polite"
+    <div
+      className={`inline-flex min-h-12 items-center gap-3 rounded-[1.75rem] bg-cream py-2 pr-5 pl-3 text-ink shadow-[0_0.5rem_1rem_-0.5rem_rgb(0_0_0/0.5)] ring-2 ring-ink/10 ${className}`}
     >
       <span
         aria-hidden
@@ -25,16 +26,30 @@ export function OpenStatus({ className = "" }: { className?: string }) {
               : "bg-scarlet"
         }`}
       />
-      {status === null ? (
-        <span className="font-mono text-sm tracking-wide">Checking the timetable…</span>
-      ) : (
-        <span className="flex flex-wrap items-baseline gap-x-2">
-          <span className="font-display text-xl font-extrabold tracking-[0.08em] uppercase">
-            {status.label}
-          </span>
-          {status.detail ? <span className="font-mono text-sm">{status.detail}</span> : null}
+      <span className="flex flex-col">
+        {/* Announced when it changes; the per-second timer below is not. */}
+        <span aria-live="polite" className="flex flex-wrap items-baseline gap-x-2">
+          {status === null ? (
+            <span className="font-mono text-sm tracking-wide">Checking the timetable…</span>
+          ) : (
+            <>
+              <span className="font-display text-xl font-extrabold tracking-[0.08em] uppercase">
+                {status.label}
+              </span>
+              {status.detail ? <span className="font-mono text-sm">{status.detail}</span> : null}
+            </>
+          )}
         </span>
-      )}
-    </p>
+        {opensInMs !== null ? (
+          <span role="timer" className="font-mono text-sm text-ink-soft">
+            Doors in{" "}
+            <span aria-hidden className="font-bold text-scarlet tabular-nums">
+              {formatCountdown(opensInMs)}
+            </span>
+            <span className="sr-only">{describeCountdown(opensInMs)}</span>
+          </span>
+        ) : null}
+      </span>
+    </div>
   );
 }

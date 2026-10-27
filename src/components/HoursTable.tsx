@@ -1,16 +1,15 @@
 "use client";
 
-import { hours, TIME_ZONE } from "@/content/hours";
-import { formatHoursRange, getOpenStatus } from "@/lib/hours";
-import { useNow } from "@/lib/useNow";
+import { hours } from "@/content/hours";
+import { formatHoursRange } from "@/lib/hours";
+import { useOpenStatus } from "@/lib/useOpenStatus";
 
 // Monday first, the way the week reads on a timetable.
 const order = [1, 2, 3, 4, 5, 6, 0];
 
 /** Weekly hours with tonight's shift highlighted (Canton time). */
 export function HoursTable() {
-  const now = useNow();
-  const status = now === null ? null : getOpenStatus(new Date(now), hours, TIME_ZONE);
+  const status = useOpenStatus();
 
   return (
     <table className="w-full font-mono text-base sm:text-lg">

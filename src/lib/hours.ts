@@ -16,6 +16,8 @@ export type OpenStatus =
       state: "closed";
       serviceDay: number;
       opensAt: string | null;
+      /** Real time until the doors open, or null if no day has hours. */
+      opensInMs: number | null;
       label: string;
       detail: string;
     };
@@ -60,13 +62,26 @@ function clockFormat(timeZone: string) {
   return format;
 }
 
-/** Weekday and minutes-past-midnight on the wall clock in `timeZone`. */
+/** The wall clock in `timeZone` at `date`. */
 export function getZonedClock(date: Date, timeZone: string) {
   const parts = clockFormat(timeZone).formatToParts(date);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  const weekday = WEEKDAYS.indexOf(get("weekday"));
+  const minutes = Number(get("hour")) * 60 + Number(get("minute"));
+
+  // The zone's offset is how far its minute-of-the-week is from UTC's,
+  // wrapped into half a week either way (real offsets are -12h to +14h).
+  const utcMinuteOfWeek = date.getUTCDay() * MINUTES_PER_DAY + date.getUTCHours() * 60 + date.getUTCMinutes();
+  let offsetMinutes = weekday * MINUTES_PER_DAY + minutes - utcMinuteOfWeek;
+  if (offsetMinutes > MINUTES_PER_WEEK / 2) offsetMinutes -= MINUTES_PER_WEEK;
+  if (offsetMinutes <= -MINUTES_PER_WEEK / 2) offsetMinutes += MINUTES_PER_WEEK;
+
   return {
-    weekday: WEEKDAYS.indexOf(get("weekday")),
-    minutes: Number(get("hour")) * 60 + Number(get("minute")),
+    weekday,
+    minutes,
+    seconds: date.getUTCSeconds(),
+    /** How far the zone's clock is ahead of UTC, e.g. -4 hours in summer. */
+    offsetMs: offsetMinutes * 60_000,
   };
 }
 
@@ -76,7 +91,7 @@ export function getZonedClock(date: Date, timeZone: string) {
  * 12:45 AM Saturday falls inside Friday's 4 PM – 1:30 AM shift.
  */
 export function getOpenStatus(date: Date, week: readonly DayHours[], timeZone: string): OpenStatus {
-  const { weekday, minutes } = getZonedClock(date, timeZone);
+  const { weekday, minutes, seconds, offsetMs } = getZonedClock(date, timeZone);
   const now = weekday * MINUTES_PER_DAY + minutes;
 
   let nextStart: number | null = null;
@@ -113,8 +128,21 @@ export function getOpenStatus(date: Date, week: readonly DayHours[], timeZone: s
   }
 
   if (nextStart === null || !nextDay?.open) {
-    return { state: "closed", serviceDay: weekday, opensAt: null, label: "Closed", detail: "" };
+    return {
+      state: "closed",
+      serviceDay: weekday,
+      opensAt: null,
+      opensInMs: null,
+      label: "Closed",
+      detail: "",
+    };
   }
+
+  // Time to opening on the bar's wall clock, then corrected for the hour the
+  // clock gains or loses if daylight saving changes before the doors open.
+  const wallMs = (nextStart - now) * 60_000 - seconds * 1000 - (date.getTime() % 1000);
+  const opensAtInstant = new Date(date.getTime() + wallMs);
+  const opensInMs = wallMs - (getZonedClock(opensAtInstant, timeZone).offsetMs - offsetMs);
 
   const daysAhead = Math.floor(nextStart / MINUTES_PER_DAY) - weekday;
   const at = formatTime(nextDay.open);
@@ -125,5 +153,38 @@ export function getOpenStatus(date: Date, week: readonly DayHours[], timeZone: s
         ? `Opens tomorrow at ${at}`
         : `Opens ${nextDay.day} at ${at}`;
 
-  return { state: "closed", serviceDay: weekday, opensAt: nextDay.open, label: "Closed", detail };
+  return {
+    state: "closed",
+    serviceDay: weekday,
+    opensAt: nextDay.open,
+    opensInMs,
+    label: "Closed",
+    detail,
+  };
+}
+
+/** 8_100_000 -> "2h 15m 00s"; over a day -> "1d 02h 15m 00s". */
+export function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const days = Math.floor(total / 86_400);
+  const hours = Math.floor((total % 86_400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (days) return `${days}d ${pad(hours)}h ${pad(minutes)}m ${pad(secs)}s`;
+  if (hours) return `${hours}h ${pad(minutes)}m ${pad(secs)}s`;
+  return `${minutes}m ${pad(secs)}s`;
+}
+
+/** The same countdown in words, to the minute, for screen readers. */
+export function describeCountdown(ms: number): string {
+  const totalMinutes = Math.ceil(Math.max(0, ms) / 60_000);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  const unit = (n: number, word: string) => (n ? `${n} ${word}${n === 1 ? "" : "s"}` : "");
+  return (
+    [unit(days, "day"), unit(hours, "hour"), unit(minutes, "minute")].filter(Boolean).join(" ") ||
+    "less than a minute"
+  );
 }
